@@ -18,10 +18,14 @@ package org.apache.lucene.index;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -119,7 +123,7 @@ final class DocumentsWriter implements Closeable, Accountable {
     this.deleteQueue = new DocumentsWriterDeleteQueue(infoStream);
     this.perThreadPool =
         new DocumentsWriterPerThreadPool(
-            () -> {
+            (hourDay) -> {
               final FieldInfos.Builder infos = new FieldInfos.Builder(globalFieldNumberMap);
               return new DocumentsWriterPerThread(
                   indexCreatedVersionMajor,
@@ -130,11 +134,29 @@ final class DocumentsWriter implements Closeable, Accountable {
                   deleteQueue,
                   infos,
                   pendingNumDocs,
-                  enableTestPoints);
+                  enableTestPoints, hourDay);
             });
     this.pendingNumDocs = pendingNumDocs;
     flushControl = new DocumentsWriterFlushControl(this, config);
     this.flushNotifications = flushNotifications;
+  }
+
+  private String getHourDay(Iterable<? extends Iterable<? extends IndexableField>> docs) {
+    Iterator<? extends IndexableField> docIt = docs.iterator().next().iterator();
+    while (docIt.hasNext()) {
+      IndexableField field = docIt.next();
+      if (field.numericValue() != null && field.name().equals("@timestamp")) {
+        long dateInMills = field.numericValue().longValue();
+        LocalDateTime timeOfDay = Instant.ofEpochSecond(dateInMills)
+                .atOffset(ZoneOffset.UTC)
+                .toLocalDateTime();
+
+        int dayOfMonth = timeOfDay.getDayOfMonth();
+        int hour = timeOfDay.getHour();
+        return dayOfMonth +  String.valueOf(hour);
+      }
+    }
+    return "00";
   }
 
   long deleteQueries(final Query... queries) throws IOException {
@@ -412,7 +434,7 @@ final class DocumentsWriter implements Closeable, Accountable {
       throws IOException {
     boolean hasEvents = preUpdate();
 
-    final DocumentsWriterPerThread dwpt = flushControl.obtainAndLock();
+    final DocumentsWriterPerThread dwpt = flushControl.obtainAndLock(getHourDay(docs));
     final DocumentsWriterPerThread flushingDWPT;
     long seqNo;
 

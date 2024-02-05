@@ -50,6 +50,7 @@ import org.apache.lucene.util.Version;
 final class DocumentsWriterPerThread implements Accountable {
 
   private Throwable abortingException;
+  public final String hourDay;
 
   private void onAbortingException(Throwable throwable) {
     assert throwable != null : "aborting exception must not be null";
@@ -149,7 +150,8 @@ final class DocumentsWriterPerThread implements Accountable {
       DocumentsWriterDeleteQueue deleteQueue,
       FieldInfos.Builder fieldInfos,
       AtomicLong pendingNumDocs,
-      boolean enableTestPoints) {
+      boolean enableTestPoints,
+      String hourDay) {
     this.indexMajorVersionCreated = indexMajorVersionCreated;
     this.directory = new TrackingDirectoryWrapper(directory);
     this.fieldInfos = fieldInfos;
@@ -161,6 +163,7 @@ final class DocumentsWriterPerThread implements Accountable {
     this.deleteQueue = Objects.requireNonNull(deleteQueue);
     assert numDocsInRAM == 0 : "num docs " + numDocsInRAM;
     deleteSlice = deleteQueue.newSlice();
+    this.hourDay = hourDay;
 
     segmentInfo =
         new SegmentInfo(
