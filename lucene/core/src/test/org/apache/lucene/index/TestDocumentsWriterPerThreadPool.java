@@ -31,7 +31,7 @@ public class TestDocumentsWriterPerThreadPool extends LuceneTestCase {
     try (Directory directory = newDirectory()) {
       DocumentsWriterPerThreadPool pool =
           new DocumentsWriterPerThreadPool(
-              () ->
+              (day) ->
                   new DocumentsWriterPerThread(
                       Version.LATEST.major,
                       "",
@@ -41,15 +41,15 @@ public class TestDocumentsWriterPerThreadPool extends LuceneTestCase {
                       new DocumentsWriterDeleteQueue(null),
                       null,
                       new AtomicLong(),
-                      false));
+                      false, day));
 
-      DocumentsWriterPerThread first = pool.getAndLock();
+      DocumentsWriterPerThread first = pool.getAndLock("11");
       assertEquals(1, pool.size());
-      DocumentsWriterPerThread second = pool.getAndLock();
+      DocumentsWriterPerThread second = pool.getAndLock("11");
       assertEquals(2, pool.size());
       pool.marksAsFreeAndUnlock(first);
       assertEquals(2, pool.size());
-      DocumentsWriterPerThread third = pool.getAndLock();
+      DocumentsWriterPerThread third = pool.getAndLock("11");
       assertSame(first, third);
       assertEquals(2, pool.size());
       pool.checkout(third);
@@ -71,7 +71,7 @@ public class TestDocumentsWriterPerThreadPool extends LuceneTestCase {
     try (Directory directory = newDirectory()) {
       DocumentsWriterPerThreadPool pool =
           new DocumentsWriterPerThreadPool(
-              () ->
+              (day) ->
                   new DocumentsWriterPerThread(
                       Version.LATEST.major,
                       "",
@@ -81,9 +81,9 @@ public class TestDocumentsWriterPerThreadPool extends LuceneTestCase {
                       new DocumentsWriterDeleteQueue(null),
                       null,
                       new AtomicLong(),
-                      false));
+                      false, day));
 
-      DocumentsWriterPerThread first = pool.getAndLock();
+      DocumentsWriterPerThread first = pool.getAndLock("11");
       pool.lockNewWriters();
       CountDownLatch latch = new CountDownLatch(1);
       Thread t =
@@ -91,7 +91,7 @@ public class TestDocumentsWriterPerThreadPool extends LuceneTestCase {
               () -> {
                 try {
                   latch.countDown();
-                  pool.getAndLock();
+                  pool.getAndLock("11");
                   fail();
                 } catch (
                     @SuppressWarnings("unused")
