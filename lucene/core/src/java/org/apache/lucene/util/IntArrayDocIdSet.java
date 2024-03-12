@@ -87,5 +87,54 @@ final class IntArrayDocIdSet extends DocIdSet {
     public long cost() {
       return length;
     }
+
+    @Override
+    public DocIdSetIterator reverseIterator() {
+      return new ReverseIntArrayDocIdSetIterator(docs, length);
+    }
+  }
+
+  static class ReverseIntArrayDocIdSetIterator extends DocIdSetIterator {
+
+    private final int[] docs;
+    private final int length;
+    private int i;
+    private int doc;
+
+    ReverseIntArrayDocIdSetIterator(int[] docs, int length) {
+      this.docs = docs;
+      this.length = length;
+      this.i = length - 1;
+      this.doc = length;
+    }
+
+    @Override
+    public int docID() {
+      return doc;
+    }
+
+    @Override
+    public int nextDoc() throws IOException {
+      return doc = docs[i--];
+    }
+
+    @Override
+    public int advance(int target) throws IOException {
+      int bound = 1;
+      // given that we use this for small arrays only, this is very unlikely to overflow
+      while (i - bound >= 0 && docs[i - bound] > target) {
+        bound *= 2;
+      }
+      i = Arrays.binarySearch(docs, Math.max(i - bound, 0), i - bound / 2,  target);
+      if (i < 0) {
+        i = -1 - i;
+      }
+      return doc = docs[i--];
+    }
+
+    @Override
+    public long cost() {
+      return length;
+    }
   }
 }

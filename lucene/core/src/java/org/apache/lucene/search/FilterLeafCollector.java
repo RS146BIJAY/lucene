@@ -56,4 +56,12 @@ public abstract class FilterLeafCollector implements LeafCollector {
     }
     return name + "(" + in + ")";
   }
+
+  public LeafCollector getBaseLeafCollector() {
+    if (in instanceof FilterLeafCollector) {
+      return ((FilterLeafCollector) in).getBaseLeafCollector();
+    }
+
+    return in;
+  }
 }

@@ -42,7 +42,7 @@ public abstract class TopFieldCollector extends TopDocsCollector<Entry> {
   // always compare lower than a real hit; this would
   // save having to check queueFull on each insert
 
-  private abstract class TopFieldLeafCollector implements LeafCollector {
+  public abstract class TopFieldLeafCollector implements LeafCollector {
 
     final LeafFieldComparator comparator;
     final int reverseMul;
@@ -143,6 +143,10 @@ public abstract class TopFieldCollector extends TopDocsCollector<Entry> {
     @Override
     public DocIdSetIterator competitiveIterator() throws IOException {
       return comparator.competitiveIterator();
+    }
+
+    public int getReverseMul() {
+      return reverseMul;
     }
   }
 

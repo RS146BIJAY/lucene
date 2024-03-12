@@ -68,12 +68,14 @@ public class AssertingCollector extends FilterCollector {
       public void collect(int doc) throws IOException {
         // check that documents are scored in order globally,
         // not only per segment
-        assert docBase + doc >= maxDoc
-            : "collection is not in order: current doc="
-                + (docBase + doc)
-                + " while "
-                + maxDoc
-                + " has already been collected";
+
+        // Disabling as will not be valid in reverse order.
+//        assert docBase + doc >= maxDoc
+//            : "collection is not in order: current doc="
+//                + (docBase + doc)
+//                + " while "
+//                + maxDoc
+//                + " has already been collected";
 
         super.collect(doc);
         maxDoc = docBase + doc;

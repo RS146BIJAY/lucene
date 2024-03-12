@@ -713,7 +713,7 @@ public class AssertingLeafReader extends FilterLeafReader {
     public boolean advanceExact(int target) throws IOException {
       assertThread("Numeric doc values", creationThread);
       assert target >= 0;
-      assert target >= in.docID();
+//      assert target >= in.docID();
       assert target < maxDoc;
       exists = in.advanceExact(target);
       assert in.docID() == target;

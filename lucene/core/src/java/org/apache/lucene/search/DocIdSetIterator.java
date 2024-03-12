@@ -86,6 +86,41 @@ public abstract class DocIdSetIterator {
       public long cost() {
         return maxDoc;
       }
+
+      @Override
+      public DocIdSetIterator reverseIterator() {
+        return allReverse(maxDoc);
+      }
+    };
+  }
+
+  public final static DocIdSetIterator allReverse(int maxDoc) {
+    return new DocIdSetIterator() {
+      int doc = maxDoc;
+
+      @Override
+      public int docID() {
+        return doc;
+      }
+
+      @Override
+      public int nextDoc() throws IOException {
+        return advance(doc - 1);
+      }
+
+      @Override
+      public int advance(int target) throws IOException {
+        doc = target;
+        if (doc < 0) {
+          doc = -1;
+        }
+        return doc;
+      }
+
+      @Override
+      public long cost() {
+        return maxDoc;
+      }
     };
   }
 
@@ -131,6 +166,10 @@ public abstract class DocIdSetIterator {
         return maxDoc - minDoc;
       }
     };
+  }
+
+  public DocIdSetIterator reverseIterator() {
+    throw new UnsupportedOperationException("Reversing this iterator is not supported for iterator: " + this.getClass().getSimpleName());
   }
 
   /**

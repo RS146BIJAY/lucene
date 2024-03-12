@@ -17,25 +17,16 @@
 package org.apache.lucene.search;
 
 import java.io.IOException;
-import org.apache.lucene.document.BinaryDocValuesField;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.DoubleDocValuesField;
-import org.apache.lucene.document.DoublePoint;
-import org.apache.lucene.document.Field;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.lucene.document.*;
 import org.apache.lucene.document.Field.Store;
-import org.apache.lucene.document.FloatDocValuesField;
-import org.apache.lucene.document.FloatPoint;
-import org.apache.lucene.document.IntPoint;
-import org.apache.lucene.document.LongPoint;
-import org.apache.lucene.document.NumericDocValuesField;
-import org.apache.lucene.document.SortedDocValuesField;
-import org.apache.lucene.document.StringField;
-import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.Term;
+import org.apache.lucene.index.*;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.tests.index.RandomIndexWriter;
 import org.apache.lucene.tests.util.LuceneTestCase;
 
@@ -233,6 +224,94 @@ public class TestSort extends LuceneTestCase {
 
     ir.close();
     dir.close();
+  }
+
+  public void testBKDTesting() throws IOException {
+    Path tmpDir = Files.createTempDirectory("SimpleSearch");
+
+    // We "open" the file system directory as a Lucene `Directory`, then open an `IndexWriter` able to write to
+    // that directory.
+    //
+    // Lucene places and locks a `write.lock` file in the directory to make sure that other processes are not able
+    // to write to the directory while we hold the lock (as long as those other processes try to obtain the lock).
+    try (Directory directory = FSDirectory.open(tmpDir);
+         IndexWriter writer = new IndexWriter(directory, new IndexWriterConfig())) {
+      // Use our `createDocuments` helper function to create the documents and write them to the index.
+      // Since they are all written at once without calling `writer.flush()` in between, they get written
+      // contiguously in a single segment. We'll cover segments in another lesson.
+      for (List<IndexableField> doc : createDocuments()) {
+        writer.addDocument(doc);
+      }
+
+      // Open an `IndexReader` based on the `writer`. This causes `writer` to flush pending documents, so they
+      // can be read. Note that `reader` has a view of the index at this point in time.
+      // If we were to write more documents with `writer`, they would not be visible to `reader`.
+      try (IndexReader reader = DirectoryReader.open(writer)) {
+        // An `IndexReader` is able to read the underlying structure of the index, but high-level searching
+        // requires an `IndexSearcher`. We'll explore the low-level `IndexReader` operations in a later lesson.
+        IndexSearcher searcher = new IndexSearcher(reader);
+        // A field that both indexed as `IntPoint` and as `SortedNumericDocValuesField` with the same value.
+        final Query pointQuery = IntPoint.newRangeQuery("order", 500, 530);
+        final Query dvQuery = SortedNumericDocValuesField.newSlowRangeQuery("order", 5, 20);
+        // A `IndexOrDocValuesQuery` is a query that uses either an index structure (points or terms) or doc values
+        // in order to run a query, depending which one is more efficient.
+        IndexOrDocValuesQuery indexOrDocValuesQuery = new IndexOrDocValuesQuery(pointQuery, dvQuery);
+        // We ask `searcher` to run our `indexOrDocValuesQuery` and return the top 10 documents, sorted by `order`
+        // field in reverse order.
+        TopDocs topDocs = searcher.search(indexOrDocValuesQuery, 10, new Sort(new SortedNumericSortField("order", SortField.Type.INT, true)));
+        searcher.setQueryCache(null);
+        // If our query had matched more than 10 documents, then `topDocs` would contain the top 10 documents,
+        // while `topDocs.totalHits` would have the total number of matching documents (or a lower bound on the
+        // total number of matching documents, if more than 1000 documents match).
+        System.out.println("Query " + indexOrDocValuesQuery + " matched " + topDocs.totalHits + " documents:");
+        // The `topDocs` contains a list of `ScoreDoc`, which just have scores and Lucene-generated doc IDs.
+        for (ScoreDoc scoreDoc : topDocs.scoreDocs) {
+          // The access to doc values is possible through `LeafReader` and not individual document(s). The `DocValues`
+          // class has a number of utility methods to access doc values. The `MultiDocValues` simplifies access to doc values
+          // a bit by using `IndexReader` directly, not individual  `LeafReader`s.
+          final SortedNumericDocValues sortedNumericDocValues = MultiDocValues.getSortedNumericValues(reader, "order");
+          // Extract the doc values for a field within specific document by advancing the iterator to the exact
+          // document position.
+          if (sortedNumericDocValues.advanceExact(scoreDoc.doc)) {
+            System.out.print("Doc values for doc [" + scoreDoc.doc + "]: ");
+            for (int count = 0; count < sortedNumericDocValues.docValueCount(); ++count) {
+              System.out.print(sortedNumericDocValues.nextValue());
+            }
+            System.out.println();
+          }
+        }
+      }
+    } finally {
+      //
+      // ## Clean up
+      //
+      // Before we finish the program, we delete each of the files in the directory.
+      for (String indexFile : FSDirectory.listAll(tmpDir)) {
+        Files.deleteIfExists(tmpDir.resolve(indexFile));
+      }
+      // Then we delete the directory itself.
+      Files.deleteIfExists(tmpDir);
+      System.out.println("cleanup completed");
+    }
+  }
+
+  private static List<List<IndexableField>> createDocuments() {
+    List<List<IndexableField>> docs = new ArrayList<>();
+    for (int i = 10000; i > 0; --i) {
+      // ## Indexed vs Stored vs DocValues Fields
+      //
+      //  - Indexed fields are organized by field -> term -> matching doc IDs -> positions.
+      //  - Stored fields are organized by document -> fields -> values (row wide).
+      //  - Doc values are organized by field -> specific doc -> values (sorted, column wide).
+      //
+      List<IndexableField> doc = new ArrayList<>();
+      doc.add(new StringField("id", Integer.toString(i), Field.Store.YES));
+      doc.add(new IntPoint("order", i));
+      doc.add(new SortedNumericDocValuesField("order", i));
+      docs.add(doc);
+    }
+
+    return docs;
   }
 
   /** Tests sorting on type int in reverse */

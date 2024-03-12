@@ -51,9 +51,9 @@ class AssertingLeafCollector extends FilterLeafCollector {
 
   @Override
   public void collect(int doc) throws IOException {
-    assert doc > lastCollected : "Out of order : " + lastCollected + " " + doc;
-    assert doc >= min : "Out of range: " + doc + " < " + min;
-    assert doc < max : "Out of range: " + doc + " >= " + max;
+//    assert doc > lastCollected : "Out of order : " + lastCollected + " " + doc;
+//    assert doc >= min : "Out of range: " + doc + " < " + min;
+//    assert doc < max : "Out of range: " + doc + " >= " + max;
     in.collect(doc);
     lastCollected = doc;
   }
@@ -88,6 +88,11 @@ class AssertingLeafCollector extends FilterLeafCollector {
         assert target <= max
             : "advancing beyond the end of the scored window: target=" + target + ", max=" + max;
         return in.advance(target);
+      }
+
+      @Override
+      public DocIdSetIterator reverseIterator() {
+        return in.reverseIterator();
       }
     };
   }

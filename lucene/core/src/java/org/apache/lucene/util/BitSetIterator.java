@@ -96,4 +96,9 @@ public class BitSetIterator extends DocIdSetIterator {
   public long cost() {
     return cost;
   }
+
+  @Override
+  public DocIdSetIterator reverseIterator() {
+    return new ReverseBitSetIterator(bits, cost);
+  }
 }

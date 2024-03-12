@@ -227,6 +227,31 @@ public abstract class Weight implements SegmentCacheable {
       collector.setScorer(scorer);
       DocIdSetIterator scorerIterator = twoPhase == null ? iterator : twoPhase.approximation();
       DocIdSetIterator competitiveIterator = collector.competitiveIterator();
+      if (competitiveIterator != null) {
+        competitiveIterator.docID();
+      }
+
+      int reverseMul = 1;
+      LeafCollector baseCollector;
+      if (collector instanceof FilterLeafCollector filterLeafCollector) {
+        baseCollector = filterLeafCollector.getBaseLeafCollector();
+      } else {
+        baseCollector = collector;
+      }
+
+      if (baseCollector instanceof TopFieldCollector.TopFieldLeafCollector leafCollector) {
+        reverseMul = leafCollector.getReverseMul();
+      }
+
+      if (reverseMul == -1) {
+        if (scorerIterator != null) {
+          scorerIterator = scorerIterator.reverseIterator();
+        }
+
+//        if (competitiveIterator != null) {
+//          competitiveIterator = competitiveIterator.reverseIterator();
+//        }
+      }
 
       if (competitiveIterator == null
           && scorerIterator.docID() == -1
@@ -234,9 +259,12 @@ public abstract class Weight implements SegmentCacheable {
           && max == DocIdSetIterator.NO_MORE_DOCS) {
         scoreAll(collector, scorerIterator, twoPhase, acceptDocs);
         return DocIdSetIterator.NO_MORE_DOCS;
+      } else if (reverseMul == -1) {
+        return scoreRangeReverse(
+                collector, scorerIterator, twoPhase, competitiveIterator, acceptDocs, min, max);
       } else {
         return scoreRange(
-            collector, scorerIterator, twoPhase, competitiveIterator, acceptDocs, min, max);
+                collector, scorerIterator, twoPhase, competitiveIterator, acceptDocs, min, max);
       }
     }
 
@@ -299,6 +327,79 @@ public abstract class Weight implements SegmentCacheable {
           }
           doc = iterator.nextDoc();
         }
+      }
+
+      return doc;
+    }
+
+    /**
+     * Specialized method to bulk-score a range of hits; we separate this from {@link #scoreAll} to
+     * help out hotspot. See <a
+     * href="https://issues.apache.org/jira/browse/LUCENE-5487">LUCENE-5487</a>
+     */
+    static int scoreRangeReverse(
+            LeafCollector collector,
+            DocIdSetIterator iterator,
+            TwoPhaseIterator twoPhase,
+            DocIdSetIterator competitiveIterator,
+            Bits acceptDocs,
+            int min,
+            int max)
+            throws IOException {
+
+      if (min < max && max == DocIdSetIterator.NO_MORE_DOCS) {
+        max = iterator.docID();
+      }
+
+      if (competitiveIterator != null) {
+        if (competitiveIterator.docID() < max) {
+          max = competitiveIterator.docID();
+          // The competitive iterator may not match any docs in the range.
+          max = Math.max(min, max);
+        }
+      }
+
+      int doc = iterator.docID();
+      if (doc >= max) {
+        if (doc == max) {
+          doc = iterator.nextDoc();
+        } else {
+          doc = iterator.advance(max);
+        }
+      }
+
+      if (twoPhase == null && competitiveIterator == null) {
+        // Optimize simple iterators with collectors that can't skip
+        while (doc >= min) {
+          if (acceptDocs == null || acceptDocs.get(doc)) {
+            collector.collect(doc);
+          }
+          doc = iterator.nextDoc();
+        }
+      } else {
+        while (doc >= min) {
+          if (competitiveIterator != null) {
+            // Since we are traversing in reverse, competetive doc id will always be before doc id.
+            assert competitiveIterator.docID() >= doc;
+            if (competitiveIterator.docID() > doc) {
+              competitiveIterator.advance(doc);
+            }
+            if (competitiveIterator.docID() != doc) {
+              doc = iterator.advance(competitiveIterator.docID());
+              continue;
+            }
+          }
+
+          if ((acceptDocs == null || acceptDocs.get(doc))
+                  && (twoPhase == null || twoPhase.matches())) {
+            collector.collect(doc);
+          }
+          doc = iterator.nextDoc();
+        }
+      }
+
+      if (doc == -1) {
+        doc = DocIdSetIterator.NO_MORE_DOCS;
       }
 
       return doc;

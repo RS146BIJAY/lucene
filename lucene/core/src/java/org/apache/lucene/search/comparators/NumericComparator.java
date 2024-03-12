@@ -131,7 +131,12 @@ public abstract class NumericComparator<T extends Number> extends FieldComparato
         }
         this.enableSkipping = true; // skipping is enabled when points are available
         this.maxDoc = context.reader().maxDoc();
-        this.competitiveIterator = DocIdSetIterator.all(maxDoc);
+        if (reverse == false) {
+          this.competitiveIterator = DocIdSetIterator.all(maxDoc);
+        } else {
+          this.competitiveIterator = DocIdSetIterator.allReverse(maxDoc);
+        }
+
       } else {
         this.enableSkipping = false;
         this.maxDoc = 0;
@@ -163,6 +168,7 @@ public abstract class NumericComparator<T extends Number> extends FieldComparato
 
     @Override
     public void copy(int slot, int doc) throws IOException {
+      // Have another variable for minDocVisited for descending query? or rename to lastDocVisited
       maxDocVisited = doc;
     }
 
@@ -234,17 +240,27 @@ public abstract class NumericComparator<T extends Number> extends FieldComparato
 
             @Override
             public void visit(int docID) {
-              if (docID <= maxDocVisited) {
+              if (reverse == false && docID <= maxDocVisited) {
                 return; // Already visited or skipped
               }
+
+              if (reverse == true && docID >= maxDocVisited) {
+                return; // Already visited or skipped
+              }
+
               adder.add(docID);
             }
 
             @Override
             public void visit(int docID, byte[] packedValue) {
-              if (docID <= maxDocVisited) {
+              if (reverse == false && docID <= maxDocVisited) {
                 return; // already visited or skipped
               }
+
+              if (reverse == true && docID >= maxDocVisited) {
+                return; // already visited or skipped
+              }
+
               if (maxValueAsBytes != null) {
                 int cmp = bytesComparator.compare(packedValue, 0, maxValueAsBytes, 0);
 
@@ -296,7 +312,12 @@ public abstract class NumericComparator<T extends Number> extends FieldComparato
         return;
       }
       pointValues.intersect(visitor);
+      // Issue is this competetive iterator is getting updated.
       competitiveIterator = result.build().iterator();
+      if (reverse == true) {
+        competitiveIterator = competitiveIterator.reverseIterator();
+      }
+
       iteratorCost = competitiveIterator.cost();
       updateSkipInterval(true);
     }
@@ -384,29 +405,57 @@ public abstract class NumericComparator<T extends Number> extends FieldComparato
     @Override
     public DocIdSetIterator competitiveIterator() {
       if (enableSkipping == false) return null;
-      return new DocIdSetIterator() {
-        private int docID = competitiveIterator.docID();
 
-        @Override
-        public int nextDoc() throws IOException {
-          return advance(docID + 1);
-        }
+      if (reverse == false) {
+        return new DocIdSetIterator() {
+          private int docID = competitiveIterator.docID();
 
-        @Override
-        public int docID() {
-          return docID;
-        }
+          @Override
+          public int nextDoc() throws IOException {
+            return advance(docID + 1);
+          }
 
-        @Override
-        public long cost() {
-          return competitiveIterator.cost();
-        }
+          @Override
+          public int docID() {
+            return docID;
+          }
 
-        @Override
-        public int advance(int target) throws IOException {
-          return docID = competitiveIterator.advance(target);
-        }
-      };
+          @Override
+          public long cost() {
+            return competitiveIterator.cost();
+          }
+
+          @Override
+          public int advance(int target) throws IOException {
+            return docID = competitiveIterator.advance(target);
+          }
+        };
+      } else {
+        return new DocIdSetIterator() {
+          private int docID = competitiveIterator.docID();
+
+          @Override
+          public int nextDoc() throws IOException {
+            return advance(docID - 1);
+          }
+
+          @Override
+          public int docID() {
+            return docID;
+          }
+
+          @Override
+          public long cost() {
+            return competitiveIterator.cost();
+          }
+
+          @Override
+          public int advance(int target) throws IOException {
+            return docID = competitiveIterator.advance(target);
+          }
+        };
+      }
+
     }
 
     /**
