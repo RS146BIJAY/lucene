@@ -104,7 +104,7 @@ final class IntArrayDocIdSet extends DocIdSet {
     ReverseIntArrayDocIdSetIterator(int[] docs, int length) {
       this.docs = docs;
       this.length = length;
-      this.i = length - 1;
+      this.i = docs.length - 1;
       this.doc = length;
     }
 
@@ -125,7 +125,8 @@ final class IntArrayDocIdSet extends DocIdSet {
       while (i - bound >= 0 && docs[i - bound] > target) {
         bound *= 2;
       }
-      i = Arrays.binarySearch(docs, Math.max(i - bound, 0), i - bound / 2,  target);
+
+      i = Arrays.binarySearch(docs, Math.max(i - bound, 0), i - bound / 2 + 1,  target);
       if (i < 0) {
         i = -1 - i;
       }

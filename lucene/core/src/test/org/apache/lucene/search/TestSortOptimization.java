@@ -218,6 +218,58 @@ public class TestSortOptimization extends LuceneTestCase {
     final int numHits = 3;
     final int totalHitsThreshold = 3;
 
+    { // test that optimization is run when missing value setting of SortField is competitive with
+      // Puring.GREATER_THAN_OR_EQUAL_TO
+      final SortField sortField = new SortField("my_field", SortField.Type.LONG);
+      sortField.setMissingValue(0L); // set a competitive missing value
+      final Sort sort = new Sort(sortField);
+      final TopFieldCollectorManager collectorManager =
+          new TopFieldCollectorManager(sort, numHits, totalHitsThreshold);
+      TopDocs topDocs = searcher.search(new MatchAllDocsQuery(), collectorManager);
+      assertEquals(topDocs.scoreDocs.length, numHits);
+      assertNonCompetitiveHitsAreSkipped(topDocs.totalHits.value, numDocs);
+    }
+    { // test that optimization is not run when missing value setting of SortField is competitive
+      // with Puring.SKIP
+      final SortField sortField1 = new SortField("my_field1", SortField.Type.LONG);
+      final SortField sortField2 = new SortField("my_field2", SortField.Type.LONG);
+      sortField1.setMissingValue(0L); // set a competitive missing value
+      sortField2.setMissingValue(0L); // set a competitive missing value
+      final Sort sort = new Sort(sortField1, sortField2);
+      CollectorManager<TopFieldCollector, TopFieldDocs> manager =
+          TopFieldCollector.createSharedManager(sort, numHits, null, totalHitsThreshold);
+      TopDocs topDocs = searcher.search(new MatchAllDocsQuery(), manager);
+      assertEquals(topDocs.scoreDocs.length, numHits);
+      assertEquals(
+          topDocs.totalHits.value,
+          numDocs); // assert that all documents were collected => optimization was not run
+    }
+    { // test that optimization is run when missing value setting of SortField is NOT competitive
+      final SortField sortField = new SortField("my_field", SortField.Type.LONG);
+      sortField.setMissingValue(100L); // set a NON competitive missing value
+      final Sort sort = new Sort(sortField);
+      final TopFieldCollectorManager collectorManager =
+          new TopFieldCollectorManager(sort, numHits, totalHitsThreshold);
+      TopDocs topDocs = searcher.search(new MatchAllDocsQuery(), collectorManager);
+      assertEquals(topDocs.scoreDocs.length, numHits);
+      assertNonCompetitiveHitsAreSkipped(topDocs.totalHits.value, numDocs);
+    }
+
+    { // test that optimization is not run when missing value setting of SortField is competitive
+      // with after on asc order
+      final long afterValue = Long.MAX_VALUE;
+      final int afterDocID = 10 + random().nextInt(1000);
+      FieldDoc after = new FieldDoc(afterDocID, Float.NaN, new Long[] {afterValue});
+      final SortField sortField = new SortField("my_field", SortField.Type.LONG);
+      sortField.setMissingValue(Long.MAX_VALUE); // set a competitive missing value
+      final Sort sort = new Sort(sortField);
+      CollectorManager<TopFieldCollector, TopFieldDocs> manager =
+          TopFieldCollector.createSharedManager(sort, numHits, after, totalHitsThreshold);
+      TopDocs topDocs = searcher.search(new MatchAllDocsQuery(), manager);
+      assertEquals(topDocs.scoreDocs.length, numHits);
+      assertNonCompetitiveHitsAreSkipped(topDocs.totalHits.value, numDocs);
+    }
+
     { // test that optimization is not run when missing value setting of SortField is competitive
       // with after on desc order
       final long afterValue = Long.MAX_VALUE;

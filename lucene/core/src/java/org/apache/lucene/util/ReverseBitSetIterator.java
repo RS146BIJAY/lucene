@@ -42,6 +42,11 @@ public class ReverseBitSetIterator extends DocIdSetIterator {
         if (target < 0) {
             return doc = -1;
         }
+
+        if (target >= length) {
+            return doc = -1;
+        }
+
         return doc = bits.prevSetBit(target);
     }
 

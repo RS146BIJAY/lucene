@@ -22,6 +22,8 @@ import org.apache.lucene.index.LeafReader;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.util.Bits;
 
+import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
+
 /**
  * Expert: Calculate query weights and build query scorers.
  *
@@ -256,9 +258,9 @@ public abstract class Weight implements SegmentCacheable {
       if (competitiveIterator == null
           && scorerIterator.docID() == -1
           && min == 0
-          && max == DocIdSetIterator.NO_MORE_DOCS) {
+          && max == NO_MORE_DOCS) {
         scoreAll(collector, scorerIterator, twoPhase, acceptDocs);
-        return DocIdSetIterator.NO_MORE_DOCS;
+        return NO_MORE_DOCS;
       } else if (reverseMul == -1) {
         return scoreRangeReverse(
                 collector, scorerIterator, twoPhase, competitiveIterator, acceptDocs, min, max);
@@ -347,7 +349,7 @@ public abstract class Weight implements SegmentCacheable {
             int max)
             throws IOException {
 
-      if (min < max && max == DocIdSetIterator.NO_MORE_DOCS) {
+      if (max == NO_MORE_DOCS) {
         max = iterator.docID();
       }
 
@@ -370,7 +372,7 @@ public abstract class Weight implements SegmentCacheable {
 
       if (twoPhase == null && competitiveIterator == null) {
         // Optimize simple iterators with collectors that can't skip
-        while (doc >= min) {
+        while (doc >= min && doc <= max) {
           if (acceptDocs == null || acceptDocs.get(doc)) {
             collector.collect(doc);
           }
@@ -384,6 +386,13 @@ public abstract class Weight implements SegmentCacheable {
             if (competitiveIterator.docID() > doc) {
               competitiveIterator.advance(doc);
             }
+
+            if (competitiveIterator.docID() == NO_MORE_DOCS) {
+              // It means we have reached end of array. See DocIdSetBuilder.build where
+              doc = -1;
+              break;
+            }
+
             if (competitiveIterator.docID() != doc) {
               doc = iterator.advance(competitiveIterator.docID());
               continue;
@@ -394,12 +403,13 @@ public abstract class Weight implements SegmentCacheable {
                   && (twoPhase == null || twoPhase.matches())) {
             collector.collect(doc);
           }
+
           doc = iterator.nextDoc();
         }
       }
 
       if (doc == -1) {
-        doc = DocIdSetIterator.NO_MORE_DOCS;
+        doc = NO_MORE_DOCS;
       }
 
       return doc;
@@ -417,7 +427,7 @@ public abstract class Weight implements SegmentCacheable {
         throws IOException {
       if (twoPhase == null) {
         for (int doc = iterator.nextDoc();
-            doc != DocIdSetIterator.NO_MORE_DOCS;
+            doc != NO_MORE_DOCS;
             doc = iterator.nextDoc()) {
           if (acceptDocs == null || acceptDocs.get(doc)) {
             collector.collect(doc);
@@ -427,7 +437,7 @@ public abstract class Weight implements SegmentCacheable {
         // The scorer has an approximation, so run the approximation first, then check acceptDocs,
         // then confirm
         for (int doc = iterator.nextDoc();
-            doc != DocIdSetIterator.NO_MORE_DOCS;
+            doc != NO_MORE_DOCS;
             doc = iterator.nextDoc()) {
           if ((acceptDocs == null || acceptDocs.get(doc)) && twoPhase.matches()) {
             collector.collect(doc);

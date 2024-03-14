@@ -109,6 +109,7 @@ public class TestSort extends LuceneTestCase {
     dir.close();
   }
 
+  // TODO: Reverse corresponding competetive iterator.
   /** Tests reverse sorting on type string */
   public void testStringReverse() throws IOException {
     Directory dir = newDirectory();
