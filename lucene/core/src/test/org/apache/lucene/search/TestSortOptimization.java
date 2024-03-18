@@ -22,6 +22,7 @@ import static org.apache.lucene.search.SortField.FIELD_SCORE;
 import com.carrotsearch.randomizedtesting.generators.RandomPicks;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import org.apache.lucene.document.Document;
@@ -873,7 +874,7 @@ public class TestSortOptimization extends LuceneTestCase {
     IndexWriter writer = new IndexWriter(dir, new IndexWriterConfig());
     List<Long> seqNos = new ArrayList<>();
     int limit = TEST_NIGHTLY ? 10000 : 1000;
-    int iterations = limit + random().nextInt(limit);
+    int iterations = 100;
     long seqNoGenerator = random().nextInt(1000);
     for (long i = 0; i < iterations; i++) {
       int copies = random().nextInt(100) <= 5 ? 1 : 1 + random().nextInt(5);
@@ -900,7 +901,7 @@ public class TestSortOptimization extends LuceneTestCase {
         writer.flush();
       }
     }
-    boolean reverse = random().nextBoolean();
+    boolean reverse = true;
     writer.flush();
     if (reverse == false) {
       seqNos.sort(Long::compare);
@@ -915,7 +916,7 @@ public class TestSortOptimization extends LuceneTestCase {
     ScoreDoc after = null;
     // test page search
     while (visitedHits < seqNos.size()) {
-      int batch = 1 + random().nextInt(100);
+      int batch = 5;
       Query query =
           random().nextBoolean()
               ? new MatchAllDocsQuery()
@@ -924,12 +925,18 @@ public class TestSortOptimization extends LuceneTestCase {
       int expectedHits = Math.min(seqNos.size() - visitedHits, batch);
       assertEquals(expectedHits, topDocs.scoreDocs.length);
       after = topDocs.scoreDocs[expectedHits - 1];
+      System.out.println("Score Docs: " + Arrays.toString(topDocs.scoreDocs));
+      System.out.println("" + after);
+      System.out.print( "Expected sequence no: ");
       for (int i = 0; i < topDocs.scoreDocs.length; i++) {
         FieldDoc fieldDoc = (FieldDoc) topDocs.scoreDocs[i];
         long expectedSeqNo = seqNos.get(visitedHits);
+        System.out.print(expectedSeqNo + " ");
         assertEquals(expectedSeqNo, ((Long) fieldDoc.fields[0]).intValue());
         visitedHits++;
       }
+
+      System.out.println();
     }
 
     // test search

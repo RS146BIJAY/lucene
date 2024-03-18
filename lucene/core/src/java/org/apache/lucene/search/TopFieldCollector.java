@@ -275,7 +275,7 @@ public abstract class TopFieldCollector extends TopDocsCollector<Entry> {
                 }
               }
               final int topCmp = reverseMul * comparator.compareTop(doc);
-              if (topCmp > 0 || (topCmp == 0 && doc <= afterDoc)) {
+              if (topCmp > 0 || (topCmp == 0 && doc <= afterDoc && reverseMul > 0) || (topCmp == 0 && afterDoc <= doc && reverseMul < 0)) {
                 // Already collected on a previous page
                 if (totalHitsRelation == TotalHits.Relation.EQUAL_TO) {
                   // check if totalHitsThreshold is reached and we can update competitive score

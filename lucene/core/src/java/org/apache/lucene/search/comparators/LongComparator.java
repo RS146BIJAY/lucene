@@ -18,6 +18,8 @@
 package org.apache.lucene.search.comparators;
 
 import java.io.IOException;
+import java.util.Arrays;
+
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.search.LeafFieldComparator;
@@ -93,6 +95,8 @@ public class LongComparator extends NumericComparator<Long> {
     @Override
     public void copy(int slot, int doc) throws IOException {
       values[slot] = getValueForDoc(doc);
+      System.out.println(doc + " " + values[slot]);
+      System.out.println(Arrays.toString(values));
       super.copy(slot, doc);
     }
 
