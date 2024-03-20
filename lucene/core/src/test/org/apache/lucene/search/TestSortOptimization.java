@@ -927,6 +927,7 @@ public class TestSortOptimization extends LuceneTestCase {
       after = topDocs.scoreDocs[expectedHits - 1];
       System.out.println("Score Docs: " + Arrays.toString(topDocs.scoreDocs));
       System.out.println("" + after);
+      System.out.println("Total Sequence No: " + Arrays.toString(seqNos.toArray()));
       System.out.print( "Expected sequence no: ");
       for (int i = 0; i < topDocs.scoreDocs.length; i++) {
         FieldDoc fieldDoc = (FieldDoc) topDocs.scoreDocs[i];

@@ -26,6 +26,8 @@ import org.apache.lucene.search.LeafCollector;
 import org.apache.lucene.search.ScoreMode;
 import org.apache.lucene.util.Bits;
 
+import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
+
 /** Wraps a Scorer with additional checks */
 final class AssertingBulkScorer extends BulkScorer {
 
@@ -79,16 +81,19 @@ final class AssertingBulkScorer extends BulkScorer {
   @Override
   public int score(LeafCollector collector, Bits acceptDocs, int min, final int max)
       throws IOException {
-    assert min >= this.max
-        : "Scoring backward: min=" + min + " while previous max was max=" + this.max;
+//    assert min >= this.max
+//        : "Scoring backward: min=" + min + " while previous max was max=" + this.max;
     assert min <= max : "max must be greater than min, got min=" + min + ", and max=" + max;
     this.max = max;
     collector = new AssertingLeafCollector(collector, min, max);
-    int next = min;
+//    int next = min;
+    int upTo = max;
     do {
-      final int upTo;
+      //final int upTo;
+      final int next;
       if (random.nextBoolean()) {
-        upTo = max;
+//        upTo = max;
+        next = min;
       } else {
         final long interval;
         if (random.nextInt(100) <= 5) {
@@ -96,16 +101,17 @@ final class AssertingBulkScorer extends BulkScorer {
         } else {
           interval = 1 + random.nextInt(random.nextBoolean() ? 100 : 5000);
         }
-        upTo = Math.toIntExact(Math.min(next + interval, max));
+//        upTo = Math.toIntExact(Math.min(next + interval, max));
+        next = Math.toIntExact(Math.max(upTo - interval, min));
       }
-      next = in.score(new AssertingLeafCollector(collector, next, upTo), acceptDocs, next, upTo);
-    } while (next < max);
+      upTo = in.score(new AssertingLeafCollector(collector, next, upTo), acceptDocs, next, upTo);
+    } while (upTo > min && upTo != NO_MORE_DOCS);
 
-    if (max >= maxDoc || next >= maxDoc) {
-      assert next == DocIdSetIterator.NO_MORE_DOCS;
+    if (upTo >= maxDoc) {
+      assert upTo == DocIdSetIterator.NO_MORE_DOCS;
       return DocIdSetIterator.NO_MORE_DOCS;
     } else {
-      return RandomNumbers.randomIntBetween(random, max, next);
+      return upTo;
     }
   }
 

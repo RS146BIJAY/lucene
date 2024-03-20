@@ -83,7 +83,12 @@ public abstract class FieldValueHitQueue<T extends FieldValueHitQueue.Entry>
       }
 
       // avoid random sort order that could lead to duplicates (bug #31241):
-      return hitA.doc > hitB.doc;
+      if (oneReverseMul > 0) {
+        return hitA.doc > hitB.doc;
+      } else {
+        return hitA.doc < hitB.doc;
+      }
+
     }
   }
 

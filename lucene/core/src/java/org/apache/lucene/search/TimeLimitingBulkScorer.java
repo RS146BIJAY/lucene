@@ -22,6 +22,8 @@ import java.util.Objects;
 import org.apache.lucene.index.QueryTimeout;
 import org.apache.lucene.util.Bits;
 
+import static org.apache.lucene.search.DocIdSetIterator.NO_MORE_DOCS;
+
 /**
  * The {@link TimeLimitingBulkScorer} is used to timeout search requests that take longer than the
  * maximum allowed search time limit. After this time is exceeded, the search thread is stopped by
@@ -69,7 +71,8 @@ final class TimeLimitingBulkScorer extends BulkScorer {
   public int score(LeafCollector collector, Bits acceptDocs, int min, int max) throws IOException {
     int interval = INTERVAL;
     while (min < max) {
-      final int newMax = (int) Math.min((long) min + interval, max);
+//      final int newMax = (int) Math.min((long) min + interval, max);
+      final int newMin = (int)Math.max((long) max - interval, min);
       final int newInterval =
           interval + (interval >> 1); // increase the interval by 50% on each iteration
       // overflow check
@@ -79,9 +82,14 @@ final class TimeLimitingBulkScorer extends BulkScorer {
       if (queryTimeout.shouldExit()) {
         throw new TimeLimitingBulkScorer.TimeExceededException();
       }
-      min = in.score(collector, acceptDocs, min, newMax); // in is the wrapped bulk scorer
+//      min = in.score(collector, acceptDocs, min, newMax); // in is the wrapped bulk scorer
+      max = in.score(collector, acceptDocs, newMin, max);
+      if (max == NO_MORE_DOCS) {
+        break;
+      }
     }
-    return min;
+    //return min;
+    return max;
   }
 
   @Override
