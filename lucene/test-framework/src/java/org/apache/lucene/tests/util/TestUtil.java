@@ -67,27 +67,7 @@ import org.apache.lucene.document.IntField;
 import org.apache.lucene.document.KeywordField;
 import org.apache.lucene.document.NumericDocValuesField;
 import org.apache.lucene.document.SortedDocValuesField;
-import org.apache.lucene.index.CheckIndex;
-import org.apache.lucene.index.CodecReader;
-import org.apache.lucene.index.ConcurrentMergeScheduler;
-import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.DocValuesType;
-import org.apache.lucene.index.FieldInfo;
-import org.apache.lucene.index.IndexFileNames;
-import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.IndexableField;
-import org.apache.lucene.index.LeafReader;
-import org.apache.lucene.index.LeafReaderContext;
-import org.apache.lucene.index.LogMergePolicy;
-import org.apache.lucene.index.MergePolicy;
-import org.apache.lucene.index.MergeScheduler;
-import org.apache.lucene.index.MultiTerms;
-import org.apache.lucene.index.PostingsEnum;
-import org.apache.lucene.index.SlowCodecReaderWrapper;
-import org.apache.lucene.index.Terms;
-import org.apache.lucene.index.TermsEnum;
-import org.apache.lucene.index.TieredMergePolicy;
+import org.apache.lucene.index.*;
 import org.apache.lucene.search.FieldDoc;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopDocs;
@@ -297,6 +277,12 @@ public final class TestUtil {
 
   public static void syncConcurrentMerges(IndexWriter writer) {
     syncConcurrentMerges(writer.getConfig().getMergeScheduler());
+  }
+
+  public static void syncConcurrentMerges(CompositeIndexWriter writer) {
+    writer.getConfig().forEach(config -> {
+      syncConcurrentMerges(config.getMergeScheduler());
+    });
   }
 
   public static void syncConcurrentMerges(MergeScheduler ms) {
@@ -1345,6 +1331,17 @@ public final class TestUtil {
       }
     }
     writer.addIndexes(leaves.toArray(new CodecReader[leaves.size()]));
+  }
+
+  public static void addIndexesSlowly(CompositeIndexWriter writer, CompositeReader... readers)
+          throws IOException {
+    List<CodecReader> leaves = new ArrayList<>();
+    for (CompositeReader reader : readers) {
+      for (LeafReaderContext context : reader.leaves()) {
+        leaves.add(SlowCodecReaderWrapper.wrap(context.reader()));
+      }
+    }
+    writer.addIndexes(leaves.toArray(new CodecReader[0]));
   }
 
   /** just tries to configure things to keep the open file count lowish */

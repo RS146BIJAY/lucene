@@ -34,8 +34,8 @@ import org.apache.lucene.util.InfoStream;
  * in a context of a set of DWPTs and a global delete pool. Each of the DWPT and the global pool
  * need to maintain their 'own' head of the queue (as a DeleteSlice instance per {@link
  * DocumentsWriterPerThread}). The difference between the DWPT and the global pool is that the DWPT
- * starts maintaining a head once it has added its first document since for its segments private
- * deletes only the deletes after that document are relevant. The global pool instead starts
+ * starts maintaining a head once it has added its first document since for its segment's private
+ * deletes, only the deletes after that document are relevant. The global pool instead starts
  * maintaining the head once this instance is created by taking the sentinel instance as its initial
  * head.
  *

@@ -26,16 +26,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.NumericDocValuesField;
-import org.apache.lucene.index.CodecReader;
-import org.apache.lucene.index.DirectoryReader;
-import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.IndexableField;
-import org.apache.lucene.index.LiveIndexWriterConfig;
-import org.apache.lucene.index.NoMergePolicy;
-import org.apache.lucene.index.SoftDeletesDirectoryReaderWrapper;
-import org.apache.lucene.index.Term;
-import org.apache.lucene.index.TieredMergePolicy;
+import org.apache.lucene.index.*;
 import org.apache.lucene.internal.tests.IndexWriterAccess;
 import org.apache.lucene.internal.tests.TestSecrets;
 import org.apache.lucene.search.Query;
@@ -124,6 +115,44 @@ public class RandomIndexWriter implements Closeable {
     }
     return iw;
   }
+
+//  public static CompositeIndexWriter mockCompositeIndexWriter(
+//          Random r, CriteriaBasedCompositeDirectory dir, List<IndexWriterConfig> conf, TestPoint testPoint) throws IOException {
+//
+//    conf.setInfoStream(new TestPointInfoStream(conf.getInfoStream(), testPoint));
+//    DirectoryReader reader = null;
+//    if (r.nextBoolean()
+//            && DirectoryReader.indexExists(dir)
+//            && conf.getOpenMode() != IndexWriterConfig.OpenMode.CREATE) {
+//      if (LuceneTestCase.VERBOSE) {
+//        System.out.println("RIW: open writer from reader");
+//      }
+//      reader = DirectoryReader.open(dir);
+//      conf.setIndexCommit(reader.getIndexCommit());
+//    }
+//
+//    CompositeIndexWriter iw;
+//    boolean success = false;
+//    try {
+//      iw =
+//              new CompositeIndexWriter(dir, conf) {
+//                @Override
+//                protected boolean isEnableTestPoints() {
+//                  return true;
+//                }
+//              };
+//      success = true;
+//    } finally {
+//      if (reader != null) {
+//        if (success) {
+//          IOUtils.close(reader);
+//        } else {
+//          IOUtils.closeWhileHandlingException(reader);
+//        }
+//      }
+//    }
+//    return iw;
+//  }
 
   /** create a RandomIndexWriter with a random config: Uses MockAnalyzer */
   public RandomIndexWriter(Random r, Directory dir) throws IOException {

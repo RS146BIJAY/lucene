@@ -102,6 +102,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import junit.framework.AssertionFailedError;
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.codecs.CompoundDirectory;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.bitvectors.HnswBitVectorsFormat;
 import org.apache.lucene.document.Document;
@@ -110,6 +111,7 @@ import org.apache.lucene.document.Field.Store;
 import org.apache.lucene.document.FieldType;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
+import org.apache.lucene.index.*;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.CodecReader;
 import org.apache.lucene.index.CompositeReader;
@@ -1320,6 +1322,14 @@ public abstract class LuceneTestCase extends Assert {
    */
   public static BaseDirectoryWrapper newDirectory() {
     return newDirectory(random());
+  }
+
+  public static CriteriaBasedCompositeDirectory newCompositeDirectory() {
+    Path multiTenantDirectory = createTempDir("MultiTenantDirectory");
+    Map<String, Directory> criteriaDirectoryMapping = new HashMap<>();
+    criteriaDirectoryMapping.put("400", newFSDirectory(multiTenantDirectory.resolve("400")));
+    criteriaDirectoryMapping.put("200", newFSDirectory(multiTenantDirectory.resolve("200")));
+    return new CriteriaBasedCompositeDirectory(newFSDirectory(multiTenantDirectory), criteriaDirectoryMapping);
   }
 
   /** Like {@link #newDirectory} except randomly the {@link VirusCheckingFS} may be installed */

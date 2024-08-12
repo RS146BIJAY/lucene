@@ -6509,6 +6509,10 @@ public class IndexWriter
     return segmentInfos.clone();
   }
 
+  public synchronized SegmentInfos getSegmentInfos() {
+    return segmentInfos;
+  }
+
   /**
    * Returns accurate {@link DocStats} for this writer. The numDoc for instance can change after
    * maxDoc is fetched that causes numDocs to be greater than maxDoc which makes it hard to get
@@ -6541,7 +6545,7 @@ public class IndexWriter
      */
     public final int numDocs;
 
-    private DocStats(int maxDoc, int numDocs) {
+    public DocStats(int maxDoc, int numDocs) {
       this.maxDoc = maxDoc;
       this.numDocs = numDocs;
     }

@@ -321,6 +321,13 @@ public final class Version {
    */
   public static final Version LUCENE_9_11_2 = new Version(9, 11, 2);
 
+  /**
+   * Match settings and bugs in Lucene's 9.12.0 release.
+   *
+   * <p>Use this to get the latest &amp; greatest settings, bug fixes, etc, for Lucene.
+   */
+  public static final Version LUCENE_9_12_0 = new Version(9, 12, 0);
+
   // To add a new version:
   //  * Only add above this comment
   //  * If the new version is the newest, change LATEST below and deprecate the previous LATEST

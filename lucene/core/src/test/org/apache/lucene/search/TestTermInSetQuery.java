@@ -252,14 +252,14 @@ public class TestTermInSetQuery extends LuceneTestCase {
 
     public TermsCountingDirectoryReaderWrapper(DirectoryReader in, AtomicInteger counter)
         throws IOException {
-      super(in, new TermsCountingSubReaderWrapper(counter));
+      super(in, new TermsCountingSubMultiReaderWrapper(counter));
       this.counter = counter;
     }
 
-    private static class TermsCountingSubReaderWrapper extends SubReaderWrapper {
+    private static class TermsCountingSubMultiReaderWrapper extends SubReaderWrapper {
       private final AtomicInteger counter;
 
-      public TermsCountingSubReaderWrapper(AtomicInteger counter) {
+      public TermsCountingSubMultiReaderWrapper(AtomicInteger counter) {
         this.counter = counter;
       }
 
