@@ -21,6 +21,8 @@ import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
+
 import org.apache.lucene.index.DocValuesUpdate.BinaryDocValuesUpdate;
 import org.apache.lucene.index.DocValuesUpdate.NumericDocValuesUpdate;
 import org.apache.lucene.search.Query;
@@ -96,20 +98,22 @@ final class DocumentsWriterDeleteQueue implements Accountable, Closeable {
   private final long startSeqNo;
   private final LongSupplier previousMaxSeqId;
   private boolean advanced;
+  private Supplier<AtomicLong> nextSeqNoSupplier;
 
-  DocumentsWriterDeleteQueue(InfoStream infoStream) {
+  DocumentsWriterDeleteQueue(InfoStream infoStream, Supplier<AtomicLong> nextSeqNoSupplier) {
     // seqNo must start at 1 because some APIs negate this to also return a boolean
-    this(infoStream, 0, 1, () -> 0);
+    this(infoStream, 0, () -> 0, nextSeqNoSupplier);
   }
 
   private DocumentsWriterDeleteQueue(
-      InfoStream infoStream, long generation, long startSeqNo, LongSupplier previousMaxSeqId) {
+      InfoStream infoStream, long generation, LongSupplier previousMaxSeqId, Supplier<AtomicLong> nextSeqNoSupplier) {
     this.infoStream = infoStream;
     this.globalBufferedUpdates = new BufferedUpdates("global");
     this.generation = generation;
+    this.startSeqNo = nextSeqNoSupplier.get().get();
     this.nextSeqNo = new AtomicLong(startSeqNo);
-    this.startSeqNo = startSeqNo;
     this.previousMaxSeqId = previousMaxSeqId;
+    this.nextSeqNoSupplier = nextSeqNoSupplier;
     long value = previousMaxSeqId.getAsLong();
     assert value <= startSeqNo : "illegal max sequence ID: " + value + " start was: " + startSeqNo;
     /*
@@ -563,7 +567,16 @@ final class DocumentsWriterDeleteQueue implements Accountable, Closeable {
   }
 
   public long getNextSequenceNumber() {
-    long seqNo = nextSeqNo.getAndIncrement();
+    // If Sequence number is advanced we know next n operation is assigned to next n sequence numbers.
+    if (advanced) {
+      nextSeqNo.getAndIncrement();
+    } else {
+      // In case it is not advanced, next available sequence will depend on next available sequence number returned by
+      // common sequence number supplier.
+      nextSeqNo.set(nextSeqNoSupplier.get().incrementAndGet());
+    }
+
+    long seqNo = nextSeqNo.get() - 1;
     assert seqNo <= maxSeqNo : "seqNo=" + seqNo + " vs maxSeqNo=" + maxSeqNo;
     return seqNo;
   }
@@ -577,7 +590,8 @@ final class DocumentsWriterDeleteQueue implements Accountable, Closeable {
    * in-flight threads get sequence numbers inside the gap
    */
   void skipSequenceNumbers(long jump) {
-    nextSeqNo.addAndGet(jump);
+//    nextSeqNo.addAndGet(jump);
+    nextSeqNo.set(nextSeqNoSupplier.get().addAndGet(jump));
   }
 
   /** Returns the maximum completed seq no for this queue. */
@@ -616,15 +630,19 @@ final class DocumentsWriterDeleteQueue implements Accountable, Closeable {
       throw new IllegalStateException("queue was already advanced");
     }
     advanced = true;
-    long seqNo = getLastSequenceNumber() + maxNumPendingOps + 1;
-    maxSeqNo = seqNo;
+    // getLastSequenceNumber will be tracked here by nextSeqNoSupplier for updates
+//    long seqNo = getLastSequenceNumber() + maxNumPendingOps + 1;
+    maxSeqNo = nextSeqNoSupplier.get().addAndGet(maxNumPendingOps);
+    // Set the nextSeqNo set for the DocumentsWriterDeleteQueue. Setting this value first as nextSeqNoSupplier can get
+    // updated in the mean time.
+    nextSeqNo.set(maxSeqNo - maxNumPendingOps);
+    nextSeqNoSupplier.get().incrementAndGet();
     return new DocumentsWriterDeleteQueue(
         infoStream,
         generation + 1,
-        seqNo + 1,
         // don't pass ::getMaxCompletedSeqNo here b/c otherwise we keep an reference to this queue
         // and this will be a memory leak since the queues can't be GCed
-        getPrevMaxSeqIdSupplier(nextSeqNo));
+        getPrevMaxSeqIdSupplier(nextSeqNo), nextSeqNoSupplier);
   }
 
   /**

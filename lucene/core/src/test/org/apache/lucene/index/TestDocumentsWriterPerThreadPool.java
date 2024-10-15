@@ -38,7 +38,7 @@ public class TestDocumentsWriterPerThreadPool extends LuceneTestCase {
                       directory,
                       directory,
                       newIndexWriterConfig(),
-                      new DocumentsWriterDeleteQueue(null),
+                      new DocumentsWriterDeleteQueue(null, () -> new AtomicLong(0L)),
                       null,
                       new AtomicLong(),
                       false));
@@ -78,7 +78,7 @@ public class TestDocumentsWriterPerThreadPool extends LuceneTestCase {
                       directory,
                       directory,
                       newIndexWriterConfig(),
-                      new DocumentsWriterDeleteQueue(null),
+                      new DocumentsWriterDeleteQueue(null, () -> new AtomicLong(0L)),
                       null,
                       new AtomicLong(),
                       false));

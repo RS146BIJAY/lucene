@@ -119,7 +119,7 @@ public final class IndexFileNames {
   private static int indexOfSegmentName(String filename) {
     // If it is a .del file, there's an '_' after the first character
     int idx = filename.indexOf('_', 1);
-    if (idx == -1) {
+    if (idx == -1 || filename.contains("$")) {
       // If it's not, strip everything that's before the '.'
       idx = filename.indexOf('.');
     }
@@ -144,6 +144,10 @@ public final class IndexFileNames {
 
   /** Returns the generation from this file name, or 0 if there is no generation. */
   public static long parseGeneration(String filename) {
+    if (filename.contains("$")) {
+      filename = filename.split("\\$")[1];
+    }
+
     assert filename.startsWith("_");
     String[] parts = stripExtension(filename).substring(1).split("_");
     // 4 cases:

@@ -19,6 +19,8 @@ package org.apache.lucene.index;
 import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -110,6 +112,7 @@ public final class IndexWriterConfig extends LiveIndexWriterConfig {
   // indicates whether this config instance is already attached to a writer.
   // not final so that it can be cloned properly.
   private SetOnce<IndexWriter> writer = new SetOnce<>();
+  private Supplier<AtomicLong> nextSeqNoSupplier;
 
   /**
    * Sets the {@link IndexWriter} this config is attached to.
@@ -122,6 +125,11 @@ public final class IndexWriterConfig extends LiveIndexWriterConfig {
           "do not share IndexWriterConfig instances across IndexWriters");
     }
     this.writer.set(writer);
+    return this;
+  }
+
+  public IndexWriterConfig setNextSeqNoSupplier(final Supplier<AtomicLong> nextSeqNoSupplier) {
+    this.nextSeqNoSupplier = nextSeqNoSupplier;
     return this;
   }
 
@@ -161,6 +169,15 @@ public final class IndexWriterConfig extends LiveIndexWriterConfig {
   @Override
   public OpenMode getOpenMode() {
     return openMode;
+  }
+
+  public Supplier<AtomicLong> getNextSeqNoSupplier() {
+    AtomicLong defaultInitialSeqNo = new AtomicLong(1);
+    if (nextSeqNoSupplier == null) {
+      return () -> defaultInitialSeqNo;
+    }
+
+    return nextSeqNoSupplier;
   }
 
   /**

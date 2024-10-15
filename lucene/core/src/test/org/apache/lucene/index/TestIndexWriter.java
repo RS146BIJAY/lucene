@@ -83,6 +83,7 @@ import org.apache.lucene.store.AlreadyClosedException;
 import org.apache.lucene.store.ByteBuffersDirectory;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.store.FSLockFactory;
 import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
@@ -123,6 +124,117 @@ import org.junit.Ignore;
 public class TestIndexWriter extends LuceneTestCase {
 
   private static final FieldType storedTextType = new FieldType(TextField.TYPE_NOT_STORED);
+
+  public void testMultiIndexWriter() throws Exception {
+    IndexWriterConfig conf1 = getIndexWriterConfig();
+    IndexWriterConfig conf2 = getIndexWriterConfig();
+    IndexWriterConfig conf3 = getIndexWriterConfig();
+    conf1.setMergePolicy(new TieredMergePolicy());
+    conf2.setMergePolicy(new TieredMergePolicy());
+    conf3.setMergePolicy(NoMergePolicy.INSTANCE);
+
+    Path multiTenantDirectory = createTempDir("MultiTenantDirectory");
+    Directory errorDirectory = newFSDirectory(multiTenantDirectory.resolve("400"));
+    Directory successDirectory = newFSDirectory(multiTenantDirectory.resolve("200"));
+    Map<String, Directory> criteriaDirectoryMapping = new HashMap<>();
+    criteriaDirectoryMapping.put("400", errorDirectory);
+    criteriaDirectoryMapping.put("200", successDirectory);
+
+    Directory parentDir = newCompositeDirectory(multiTenantDirectory, FSLockFactory.getDefault(), false,
+            criteriaDirectoryMapping);
+
+
+//
+//    Directory errorDir = newFSDirectory(multiTenantDirectory.resolve("400"));
+//    Directory successDir = newFSDirectory(multiTenantDirectory.resolve("200"));
+//    Directory parentDir = newFSDirectory(multiTenantDirectory);
+    AtomicLong seqNo = new AtomicLong();
+    conf1.setNextSeqNoSupplier(() -> seqNo);
+    conf2.setNextSeqNoSupplier(() -> seqNo);
+    IndexWriter iw1 = new IndexWriter(errorDirectory, conf1);
+    IndexWriter iw2 = new IndexWriter(successDirectory, conf2);
+    IndexWriter iw3 = new IndexWriter(parentDir, conf3);
+
+    System.out.println("Adding doc to first index");
+    long prev = -1;
+    for (long i = 0L; i < 10000L; ++i) {
+      long m1 = addDoc(iw1, 0);
+      if (i%10000 == 0) {
+        iw1.flush();
+      }
+
+      if (prev > m1) {
+        System.out.println(prev + " " + m1);
+      }
+
+      prev = m1;
+
+      long m2 = addDoc(iw2, 1);
+      if (i%10000 == 0) {
+        iw2.flush();
+      }
+
+      if (prev > m2) {
+        System.out.println(prev + " " + m2);
+      }
+
+      prev = m2;
+    }
+
+    System.out.println("Adding doc to Second index " + prev);
+
+//    iw1.commit();
+//    iw2.commit();
+//    try() {
+//
+//    }
+
+    StandardDirectoryReader reader1 = (StandardDirectoryReader) iw1.getReader(true, true);
+    StandardDirectoryReader reader2 = (StandardDirectoryReader) iw2.getReader(true, true);
+    System.out.println("Merging index");
+    long st = System.currentTimeMillis();
+    SegmentInfos errorInfos = reader1.getSegmentInfos();
+    SegmentInfos successInfos = reader2.getSegmentInfos();
+    addPrefixToSegmentInfoAttribute(errorInfos, "400");
+    addPrefixToSegmentInfoAttribute(successInfos, "200");
+    iw3.addIndexes(errorInfos, successInfos);
+    long en = System.currentTimeMillis();
+    System.out.println(en - st);
+    iw3.commit();
+    DirectoryReader reader = DirectoryReader.open(parentDir);
+    assertEquals(20000L, reader.numDocs());
+    reader1.close();
+    reader2.close();
+    reader.close();
+    iw1.close();
+    iw2.close();
+    iw3.close();
+    parentDir.close();
+
+  }
+
+  private void addPrefixToSegmentInfoAttribute(SegmentInfos infos, String prefix) {
+    for (SegmentCommitInfo commitInfo: infos) {
+      commitInfo.info.putAttribute("segment_name_prefix", prefix);
+    }
+  }
+
+  private IndexWriterConfig getIndexWriterConfig() {
+    final IndexWriterConfig iwc = new IndexWriterConfig();
+    iwc.setCommitOnClose(true); // we by default don't commit on close
+    iwc.setOpenMode(OpenMode.CREATE);
+//    iwc.setIndexDeletionPolicy(combinedDeletionPolicy);
+    // with tests.verbose, lucene sets this up: plumb to align with filesystem stream
+    iwc.setSoftDeletesField("__soft_deletes");
+    // Disable merge on refresh
+    iwc.setMaxFullFlushMergeWaitMillis(0);
+    iwc.setCheckPendingFlushUpdate(true);
+    iwc.setMergePolicy(NoMergePolicy.INSTANCE);
+    iwc.setRAMBufferSizeMB(10.0);
+//    iwc.setCodec(engineConfig.getCodec());
+    iwc.setUseCompoundFile(true);
+    return iwc;
+  }
 
   public void testDocCount() throws IOException {
     CriteriaBasedCompositeDirectory dir = newCompositeDirectory();
@@ -219,6 +331,13 @@ public class TestIndexWriter extends LuceneTestCase {
     doc.add(newTextField("content", "aaa", Field.Store.NO));
     doc.add(newTextField("status", "400", Field.Store.NO));
     writer.addDocument(doc);
+  }
+
+  static long addDoc(IndexWriter writer, int i) throws IOException {
+    Document doc = new Document();
+    doc.add(newTextField("content", "aaa", Field.Store.NO));
+    doc.add(newTextField("status", ((i%2) == 0)?"400":"200", Field.Store.NO));
+    return writer.addDocument(doc);
   }
 
   static void addDoc(CompositeIndexWriter writer, int i) throws IOException {

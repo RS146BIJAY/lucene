@@ -4,6 +4,7 @@ import org.apache.lucene.store.*;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class CriteriaBasedCompositeDirectory extends FilterDirectory {
 
@@ -29,54 +30,90 @@ public class CriteriaBasedCompositeDirectory extends FilterDirectory {
         return criteriaDirectoryMapping.keySet();
     }
 
+    // TODO: Handling references of parent IndexWriter for deleting files of child IndexWriter
+    //  (As of now not removing file in parent delete call). For eg: If a dec ref is called on parent IndexWriter and
+    //  there are no active references of a file by parent IndexWriter to child IndexWriter, should we delete it?
     @Override
     public void deleteFile(String name) throws IOException {
-        String criteria = name.split("_")[0];
-        getDirectory(criteria).deleteFile(name);
+//        if (name.contains("$")) {
+//            String criteria = name.split("\\$")[0];
+//            System.out.println("Deleting file from directory " + getDirectory(criteria) + " with name " + name);
+//            getDirectory(criteria).deleteFile(name.replace(criteria + "$", ""));
+//        } else {
+//            System.out.println("Deleting file from directory " + multiTenantDirectory + " with name " + name);
+//            multiTenantDirectory.deleteFile(name);
+//        }
+
+        // For time being let child IndexWriter take care of deleting files inside it. Parent IndexWriter should only care
+        // about deleting files within parent directory.
+        if (!name.contains("$")) {
+            multiTenantDirectory.deleteFile(name);
+        }
     }
 
     // Fix this.
     @Override
     public String[] listAll() throws IOException {
-        List<String> filesList = new ArrayList<>();
-        for (Map.Entry<String, Directory> filterDirectoryEntry: criteriaDirectoryMapping.entrySet()) {
-            String prefix = filterDirectoryEntry.getKey();
-            Directory filterDirectory = filterDirectoryEntry.getValue();
-            for (String fileName : filterDirectory.listAll()) {
-                filesList.add(prefix + "_" + fileName);
-            }
-        }
+//        List<String> filesList = new ArrayList<>();
+//        for (Map.Entry<String, Directory> filterDirectoryEntry: criteriaDirectoryMapping.entrySet()) {
+//            String prefix = filterDirectoryEntry.getKey();
+//            Directory filterDirectory = filterDirectoryEntry.getValue();
+//            for (String fileName : filterDirectory.listAll()) {
+//                filesList.add(prefix + "_" + fileName);
+//            }
+//        }
 
-        return filesList.toArray(new String[0]);
+        // Exclude group level folder names which is same as criteria
+        Set<String> criteriaList = getCriteriaList();
+        String[] filesList = Arrays.stream(multiTenantDirectory.listAll()).filter(fileName -> !criteriaList.contains(fileName))
+                .toArray(String[]::new);
+
+        System.out.println("Parent Directory " + multiTenantDirectory + " list files: " + Arrays.toString(filesList));
+        return filesList;
     }
 
-    // Merge this
     @Override
     public ChecksumIndexInput openChecksumInput(String name, IOContext context) throws IOException {
-        String criteria = name.split("_")[0];
-        return getDirectory(criteria).openChecksumInput(name, context);
+        if (name.contains("$")) {
+            String criteria = name.split("\\$")[0];
+            return getDirectory(criteria).openChecksumInput(name.replace(criteria + "$", ""), context);
+        } else {
+            return multiTenantDirectory.openChecksumInput(name, context);
+        }
     }
 
     // TODO: Select on the basis of filter name.
     @Override
     public IndexInput openInput(String name, IOContext context) throws IOException {
-        String criteria = name.split("_")[0];
-        return getDirectory(criteria).openInput(name, context);
+        if (name.contains("$")) {
+            String criteria = name.split("\\$")[0];
+            return getDirectory(criteria).openInput(name.replace(criteria + "$", ""), context);
+        } else {
+            return multiTenantDirectory.openInput(name, context);
+        }
     }
 
     // TODO: Merge this
     // TODO: Select on the basis of filter name.
     @Override
     public IndexOutput createOutput(String name, IOContext context) throws IOException {
-        String criteria = name.split("_")[0];
-        return getDirectory(criteria).createOutput(name, context);
+        if (name.contains("$")) {
+            String criteria = name.split("\\$")[0];
+            return getDirectory(criteria).createOutput(name.replace(criteria + "$", ""), context);
+        } else {
+            return multiTenantDirectory.createOutput(name, context);
+        }
     }
 
     // TODO: Select on the basis of filter name.
     @Override
     public long fileLength(String name) throws IOException {
-        String criteria = name.split("_")[0];
-        return getDirectory(criteria).fileLength(name);
+        if (name.contains("$")) {
+            String criteria = name.split("\\$")[0];
+            return getDirectory(criteria).fileLength(name.replace(criteria + "$", ""));
+        } else {
+            return multiTenantDirectory.fileLength(name);
+        }
     }
 
     @Override
@@ -85,7 +122,7 @@ public class CriteriaBasedCompositeDirectory extends FilterDirectory {
             filterDirectory.close();
         }
 
-        multiTenantDirectory.close();
+        super.close();
     }
 
     // Attach prefix name.
@@ -93,4 +130,3 @@ public class CriteriaBasedCompositeDirectory extends FilterDirectory {
         return this.criteriaDirectoryMapping.values().toArray(new Directory[0]);
     }
 }
-

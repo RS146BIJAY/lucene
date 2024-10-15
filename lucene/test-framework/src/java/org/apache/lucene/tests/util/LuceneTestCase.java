@@ -1332,6 +1332,32 @@ public abstract class LuceneTestCase extends Assert {
     return new CriteriaBasedCompositeDirectory(newFSDirectory(multiTenantDirectory), criteriaDirectoryMapping);
   }
 
+  public static BaseDirectoryWrapper newCompositeDirectory(Path f, LockFactory lf, boolean bare, Map<String, Directory> criteriaDirectoryMapping) {
+    String fsdirClass = TEST_DIRECTORY;
+    if (fsdirClass.equals("random")) {
+      fsdirClass = RandomPicks.randomFrom(random(), FS_DIRECTORIES);
+    }
+
+    Class<? extends FSDirectory> clazz;
+    try {
+      try {
+        clazz = CommandLineUtil.loadFSDirectoryClass(fsdirClass);
+      } catch (
+              @SuppressWarnings("unused")
+              ClassCastException e) {
+        // TEST_DIRECTORY is not a sub-class of FSDirectory, so draw one at random
+        fsdirClass = RandomPicks.randomFrom(random(), FS_DIRECTORIES);
+        clazz = CommandLineUtil.loadFSDirectoryClass(fsdirClass);
+      }
+
+      Directory fsdir = new CriteriaBasedCompositeDirectory(newFSDirectoryImpl(clazz, f, lf), criteriaDirectoryMapping);
+      return wrapDirectory(random(), fsdir, bare, true);
+    } catch (Exception e) {
+      Rethrow.rethrow(e);
+      throw null; // dummy to prevent compiler failure
+    }
+  }
+
   /** Like {@link #newDirectory} except randomly the {@link VirusCheckingFS} may be installed */
   public static BaseDirectoryWrapper newMaybeVirusCheckingDirectory() {
     if (random().nextInt(5) == 4) {

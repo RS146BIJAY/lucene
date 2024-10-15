@@ -113,10 +113,10 @@ final class DocumentsWriter implements Closeable, Accountable {
       LiveIndexWriterConfig config,
       Directory directoryOrig,
       Directory directory,
-      FieldInfos.FieldNumbers globalFieldNumberMap) {
+      FieldInfos.FieldNumbers globalFieldNumberMap, Supplier<AtomicLong> nextSeqNoSupplier) {
     this.config = config;
     this.infoStream = config.getInfoStream();
-    this.deleteQueue = new DocumentsWriterDeleteQueue(infoStream);
+    this.deleteQueue = new DocumentsWriterDeleteQueue(infoStream, nextSeqNoSupplier);
     this.perThreadPool =
         new DocumentsWriterPerThreadPool(
             () -> {

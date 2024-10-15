@@ -20,6 +20,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.lucene.index.DocumentsWriterDeleteQueue.DeleteSlice;
 import org.apache.lucene.index.PrefixCodedTerms.TermIterator;
@@ -34,7 +35,7 @@ import org.apache.lucene.util.ThreadInterruptedException;
 public class TestDocumentsWriterDeleteQueue extends LuceneTestCase {
 
   public void testUpdateDeleteSlices() throws Exception {
-    DocumentsWriterDeleteQueue queue = new DocumentsWriterDeleteQueue(null);
+    DocumentsWriterDeleteQueue queue = new DocumentsWriterDeleteQueue(null, () -> new AtomicLong(0L));
     final int size = 200 + random().nextInt(500) * RANDOM_MULTIPLIER;
     Integer[] ids = new Integer[size];
     for (int i = 0; i < ids.length; i++) {
@@ -89,7 +90,7 @@ public class TestDocumentsWriterDeleteQueue extends LuceneTestCase {
   }
 
   public void testClear() {
-    DocumentsWriterDeleteQueue queue = new DocumentsWriterDeleteQueue(null);
+    DocumentsWriterDeleteQueue queue = new DocumentsWriterDeleteQueue(null, () -> new AtomicLong(0L));
     assertFalse(queue.anyChanges());
     queue.clear();
     assertFalse(queue.anyChanges());
@@ -111,7 +112,7 @@ public class TestDocumentsWriterDeleteQueue extends LuceneTestCase {
   }
 
   public void testAnyChanges() {
-    DocumentsWriterDeleteQueue queue = new DocumentsWriterDeleteQueue(null);
+    DocumentsWriterDeleteQueue queue = new DocumentsWriterDeleteQueue(null, () -> new AtomicLong(0L));
     final int size = 200 + random().nextInt(500) * RANDOM_MULTIPLIER;
     int termsSinceFreeze = 0;
     int queriesSinceFreeze = 0;
@@ -137,7 +138,7 @@ public class TestDocumentsWriterDeleteQueue extends LuceneTestCase {
   }
 
   public void testPartiallyAppliedGlobalSlice() throws Exception {
-    final DocumentsWriterDeleteQueue queue = new DocumentsWriterDeleteQueue(null);
+    final DocumentsWriterDeleteQueue queue = new DocumentsWriterDeleteQueue(null, () -> new AtomicLong(0L));
     ReentrantLock lock = queue.globalBufferLock;
     lock.lock();
     Thread t =
@@ -160,7 +161,7 @@ public class TestDocumentsWriterDeleteQueue extends LuceneTestCase {
   }
 
   public void testStressDeleteQueue() throws Exception {
-    DocumentsWriterDeleteQueue queue = new DocumentsWriterDeleteQueue(null);
+    DocumentsWriterDeleteQueue queue = new DocumentsWriterDeleteQueue(null, () -> new AtomicLong(0L));
     Set<Term> uniqueValues = new HashSet<>();
     final int size = 10000 + random().nextInt(500) * RANDOM_MULTIPLIER;
     Integer[] ids = new Integer[size];
@@ -205,7 +206,7 @@ public class TestDocumentsWriterDeleteQueue extends LuceneTestCase {
 
   public void testClose() {
     {
-      DocumentsWriterDeleteQueue queue = new DocumentsWriterDeleteQueue(null);
+      DocumentsWriterDeleteQueue queue = new DocumentsWriterDeleteQueue(null, () -> new AtomicLong(0L));
       assertTrue(queue.isOpen());
       queue.close();
       if (random().nextBoolean()) {
@@ -224,7 +225,7 @@ public class TestDocumentsWriterDeleteQueue extends LuceneTestCase {
       assertFalse(queue.isOpen());
     }
     {
-      DocumentsWriterDeleteQueue queue = new DocumentsWriterDeleteQueue(null);
+      DocumentsWriterDeleteQueue queue = new DocumentsWriterDeleteQueue(null, () -> new AtomicLong(0L));
       queue.addDelete(new Term("foo", "bar"));
       expectThrows(IllegalStateException.class, () -> queue.close());
       assertTrue(queue.isOpen());

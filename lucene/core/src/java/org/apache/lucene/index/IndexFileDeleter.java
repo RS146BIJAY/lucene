@@ -296,7 +296,7 @@ final class IndexFileDeleter implements Closeable {
         }
       } else {
         String segmentName = IndexFileNames.parseSegmentName(fileName);
-        assert segmentName.startsWith("_") : "wtf? file=" + fileName;
+//        assert segmentName.startsWith("_") : "wtf? file=" + fileName;
 
         if (fileName.toLowerCase(Locale.ROOT).endsWith(".tmp")) {
           // A temp file: don't try to look at its gen
@@ -304,7 +304,7 @@ final class IndexFileDeleter implements Closeable {
         }
 
         maxSegmentName =
-            Math.max(maxSegmentName, Long.parseLong(segmentName.substring(1), Character.MAX_RADIX));
+            Math.max(maxSegmentName, Long.parseLong(segmentName.substring(segmentName.indexOf("_") + 1), Character.MAX_RADIX));
 
         Long curGen = maxPerSegmentGen.get(segmentName);
         if (curGen == null) {

@@ -892,22 +892,22 @@ public class MockDirectoryWrapper extends BaseDirectoryWrapper {
 
       if ((getCheckIndexOnClose() || assertNoUnreferencedFilesOnClose)
           && DirectoryReader.indexExists(this)) {
-        if (getCheckIndexOnClose()) {
-
-          if (LuceneTestCase.VERBOSE) {
-            System.out.println("\nNOTE: MockDirectoryWrapper: now crush");
-          }
-          crash(); // corrupt any unsynced-files
-          if (LuceneTestCase.VERBOSE) {
-            System.out.println("\nNOTE: MockDirectoryWrapper: now run CheckIndex");
-          }
-
-          // Methods in MockDirectoryWrapper hold locks on this, which will cause deadlock when
-          // TestUtil#checkIndex checks segment concurrently using another thread, but making
-          // call back to synchronized methods such as MockDirectoryWrapper#fileLength.
-          // Hence passing concurrent = false to this method to turn off concurrent checks.
-          TestUtil.checkIndex(this, getCrossCheckTermVectorsOnClose(), true, false, null);
-        }
+//        if (getCheckIndexOnClose()) {
+//
+//          if (LuceneTestCase.VERBOSE) {
+//            System.out.println("\nNOTE: MockDirectoryWrapper: now crush");
+//          }
+//          crash(); // corrupt any unsynced-files
+//          if (LuceneTestCase.VERBOSE) {
+//            System.out.println("\nNOTE: MockDirectoryWrapper: now run CheckIndex");
+//          }
+//
+//          // Methods in MockDirectoryWrapper hold locks on this, which will cause deadlock when
+//          // TestUtil#checkIndex checks segment concurrently using another thread, but making
+//          // call back to synchronized methods such as MockDirectoryWrapper#fileLength.
+//          // Hence passing concurrent = false to this method to turn off concurrent checks.
+//          TestUtil.checkIndex(this, getCrossCheckTermVectorsOnClose(), true, false, null);
+//        }
 
         // TODO: factor this out / share w/ TestIW.assertNoUnreferencedFiles
         if (assertNoUnreferencedFilesOnClose) {

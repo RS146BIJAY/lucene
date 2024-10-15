@@ -154,6 +154,10 @@ final class Lucene90CompoundReader extends CompoundDirectory {
   @Override
   public IndexInput openInput(String name, IOContext context) throws IOException {
     ensureOpen();
+    if (name.contains("$")) {
+      name = name.split("\\$")[1];
+    }
+
     final String id = IndexFileNames.stripSegmentName(name);
     final FileEntry entry = entries.get(id);
     if (entry == null) {
@@ -194,6 +198,10 @@ final class Lucene90CompoundReader extends CompoundDirectory {
   @Override
   public long fileLength(String name) throws IOException {
     ensureOpen();
+//    if (name.contains("$")) {
+//      name = name.split("\\$")[1];
+//    }
+
     FileEntry e = entries.get(IndexFileNames.stripSegmentName(name));
     if (e == null) throw new FileNotFoundException(name);
     return e.length;
