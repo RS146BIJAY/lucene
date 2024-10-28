@@ -1119,10 +1119,6 @@ public class IndexWriter
         rollbackSegments = segmentInfos.createBackupSegmentInfos();
       }
 
-      for (SegmentCommitInfo commitInfo: segmentInfos) {
-        segmentInfoNames.add(commitInfo.info.name);
-      }
-
       commitUserData = new HashMap<>(segmentInfos.getUserData()).entrySet();
 
       pendingNumDocs.set(segmentInfos.totalMaxDoc());
@@ -2541,7 +2537,7 @@ public class IndexWriter
         // value
         // otherwise we might hide internal bugsf
         adjustPendingNumDocs(-(totalMaxDoc - rollbackMaxDoc));
-        System.out.println("Total maxDoc: " + totalMaxDoc + " rollbackMaxDoc: " + rollbackMaxDoc + " " + pendingNumDocs);
+//        System.out.println("Total maxDoc: " + totalMaxDoc + " rollbackMaxDoc: " + rollbackMaxDoc + " " + pendingNumDocs);
         if (infoStream.isEnabled("IW")) {
           infoStream.message("IW", "rollback: infos=" + segString(segmentInfos));
         }
@@ -3114,7 +3110,6 @@ public class IndexWriter
           }
         }
         segmentInfos.addAll(infos);
-        assert segmentInfoNames.size() == segmentInfos.size();
         checkpoint();
       }
 
@@ -3142,6 +3137,7 @@ public class IndexWriter
 //    noDupDirs(dirs);
 
 //    List<Lock> locks = acquireWriteLocks(dirs);
+    segmentInfos.clear();
 
     Sort indexSort = config.getIndexSort();
     pendingNumDocs.set(0);
@@ -3180,6 +3176,11 @@ public class IndexWriter
       testReserveDocs(totalMaxDoc);
 
       boolean success = false;
+      SegmentInfos inputInfos1 = inputInfos[0];
+      SegmentInfos inputInfos2 = inputInfos[1];
+      System.out.println("Input SegmentInfosList inside addIndexes inside IndexWriter for 400 " + inputInfos1);
+      System.out.println("Input SegmentInfosList inside addIndexes inside IndexWriter for 200 " + inputInfos2);
+      System.out.println("SegmentInfos list inside addIndexes inside IndexWriter " + segmentInfos);
       try {
         for (SegmentInfos sis : commits) {
           for (SegmentCommitInfo info : sis) {
@@ -3219,6 +3220,7 @@ public class IndexWriter
               infos.add(copySegmentAsIs(info, newSegName, context));
               segmentInfoNames.add(newSegName);
             }
+
           }
         }
         success = true;
@@ -3254,9 +3256,6 @@ public class IndexWriter
           }
         }
 
-        System.out.println("Infos list inside addIndexes inside IndexWriter " + Arrays.toString(infos.toArray()));
-        System.out.println("SegmentInfos list inside addIndexes inside IndexWriter " + segmentInfos);
-        System.out.println("Segment Names list inside addIndexes inside IndexWriter " + Arrays.toString(segmentInfoNames.toArray()));
         segmentInfos.addAll(infos);
         checkpoint();
       }
