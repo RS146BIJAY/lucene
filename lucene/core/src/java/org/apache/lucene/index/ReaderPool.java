@@ -20,6 +20,7 @@ package org.apache.lucene.index;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -408,6 +409,8 @@ final class ReaderPool implements Closeable {
       rld =
           new ReadersAndUpdates(
               segmentInfos.getIndexCreatedVersionMajor(), info, newPendingDeletes(info));
+      System.out.println("Putting " + info.info.name + " inside " + Arrays.toString(readerMap.keySet().stream()
+              .map(commitInfo -> commitInfo.info.name).toArray()));
       // Steal initial reference:
       readerMap.put(info, rld);
     } else {

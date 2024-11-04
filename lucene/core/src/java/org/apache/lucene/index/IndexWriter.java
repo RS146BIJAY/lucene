@@ -3137,11 +3137,11 @@ public class IndexWriter
 //    noDupDirs(dirs);
 
 //    List<Lock> locks = acquireWriteLocks(dirs);
-    segmentInfos.clear();
+    deleteAll();
+    segmentInfoNames.clear();
 
     Sort indexSort = config.getIndexSort();
     pendingNumDocs.set(0);
-
     long seqNo;
 
     isReferencing.set(true);
@@ -3196,7 +3196,13 @@ public class IndexWriter
             }
 
             String newSegName = getPrefixForThisSegment(info) + "$" + info.info.name;
+//            if (!segmentInfoNames.contains(newSegName)) {
+//
+//              segmentInfoNames.add(newSegName);
+//            }
+
             if (!segmentInfoNames.contains(newSegName)) {
+              segmentInfoNames.add(newSegName);
               if (infoStream.isEnabled("IW")) {
                 infoStream.message(
                         "IW",
@@ -3218,11 +3224,10 @@ public class IndexWriter
                 globalFieldNumberMap.addOrGet(fi);
               }
               infos.add(copySegmentAsIs(info, newSegName, context));
-              segmentInfoNames.add(newSegName);
             }
-
           }
         }
+
         success = true;
       } catch (Exception ex) {
         throw ex;
@@ -3257,6 +3262,7 @@ public class IndexWriter
         }
 
         segmentInfos.addAll(infos);
+        System.out.println("SegmentInfos list inside addIndexes inside IndexWriter post adding " + segmentInfos);
         checkpoint();
       }
 
